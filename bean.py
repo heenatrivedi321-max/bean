@@ -346,7 +346,13 @@ def handoff_to_app(model: str) -> bool:
         console.print()
         return True
     if sys.platform == "win32":
-        os.startfile("ollama://")
+        try:
+            os.startfile("ollama://")
+        except Exception:
+            # No handler for ollama:// means the desktop app isn't installed.
+            error("the Ollama app isn't installed — grab it from "
+                  "https://ollama.com/download")
+            return False
         with console.status("loading your model…", spinner="dots"):
             warm_model(model)
         console.print()
@@ -354,8 +360,9 @@ def handoff_to_app(model: str) -> bool:
         console.print()
         return True
     # Linux: no desktop app — the terminal workshop takes over.
-    status("the Ollama app isn't available on Linux")
-    status("you can chat at ollama.com/chat — or stay right here:")
+    status("no Ollama desktop app on Linux — but the model is ready")
+    status(f"chat now with:  ollama run {model}")
+    status("or stay right here in the terminal workshop:")
     console.print()
     return False
 

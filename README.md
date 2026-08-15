@@ -17,6 +17,12 @@ Or from a clone:
 ./install.sh
 ```
 
+Windows? Same story, one command (PowerShell):
+
+```powershell
+curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/bean/main/install.ps1 | powershell -Command -
+```
+
 That's it. Say hi, chat a bit, then type what you need — bean picks the best
 model that fits (through a tiny proxy that holds the key — no API keys
 required from you), downloads it with a live progress bar, then steps out.
@@ -54,9 +60,11 @@ python3 bean.py --setup      # force re-setup (pick a new model)
 
 ## Requirements
 
-- macOS or Linux (the Ollama desktop app is used on macOS — on Linux the
-  terminal workshop takes over)
-- Ollama installed (install.sh does it for you)
+- macOS, Windows, or Linux
+- Ollama installed (install.sh / install.ps1 does it for you)
+- On macOS the Ollama desktop app opens with your model ready; on Windows
+  the desktop app opens too; on Linux (no desktop app) the terminal
+  workshop takes over and the model is one `ollama run` away
 
 ## For developers
 
