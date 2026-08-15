@@ -196,6 +196,16 @@ def cloud_label() -> str:
 
 # ---------------------------------------------------------------- download
 
+def _stop_progress(progress) -> None:
+    """progress.stop() can throw when there's no real terminal (CI, pipes) —
+    rich's Live tries to enter the console context and fails. The bar is
+    cosmetic; never let cleanup break the download result."""
+    try:
+        progress.stop()
+    except Exception:
+        pass
+
+
 def download(name: str) -> bool:
     """ollama pull with a real progress bar — percent, speed, time left.
 
@@ -254,12 +264,12 @@ def download(name: str) -> bool:
             proc.kill()
         except Exception:
             pass
-        progress.stop()
+        _stop_progress(progress)
         console.print()
         error("download cancelled")
         return False
     finally:
-        progress.stop()
+        _stop_progress(progress)
 
     proc.wait()
     if proc.returncode != 0:
