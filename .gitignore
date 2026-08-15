@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+.localcoder/
+jarvis/
+worker/node_modules/
+worker/.wrangler/

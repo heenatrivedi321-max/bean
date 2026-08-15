@@ -1,0 +1,6 @@
+name = "bean-picker"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# The Groq key is NOT here. Set it as an encrypted secret:
+#   npx wrangler secret put GROQ_API_KEY
