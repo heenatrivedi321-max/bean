@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run test suite
+        run: python test_bean.py
+
+      - name: Python syntax check on every module
+        run: |
+          python -m py_compile bean.py catalog.py config.py local_worker.py \
+            agent_loop.py tools.py ui.py onboard.py setup_wizard.py test_bean.py
+        shell: bash
+
+      - name: install.sh syntax (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          bash -n install.sh
+          bash install.sh --dry-run --no-run
+
+      - name: install.ps1 syntax (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          pwsh -NoProfile -Command "[System.Management.Automation.Language.Parser]::ParseFile('install.ps1', [ref]\$null, [ref]\$errors) | Out-Null; if (\$errors.Count) { \$errors | ForEach-Object { \$_.Message }; exit 1 } else { 'install.ps1 syntax OK' }"
+          pwsh -NoProfile -File install.ps1 -DryRun
