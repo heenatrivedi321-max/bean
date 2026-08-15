@@ -102,7 +102,15 @@ if (-not $DryRun) {
 Ok "everything's in place"
 if ($NoRun -or $DryRun) { exit 0 }
 
-Say "opening bean"
-Push-Location $BeanDir
-& $Py $BeanFile
-Pop-Location
+if (-not [Console]::IsInputRedirected) {
+  Say "opening bean"
+  Push-Location $BeanDir
+  # $Py is a multi-word command ("uv run --quiet ... python"), so use
+  # Invoke-Expression to let PowerShell parse it as a command line.
+  Invoke-Expression "& $Py `"$BeanFile`""
+  Pop-Location
+} else {
+  # Piped install (curl ... | powershell -Command -): stdin is the
+  # exhausted pipe, so bean would have no terminal to talk to.
+  Say "bean is installed - run 'bean' in a fresh terminal to start chatting"
+}

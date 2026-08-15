@@ -163,5 +163,10 @@ ok "everything's in place"
 if [ "$NO_RUN" = "0" ] && [ "$DRY_RUN" = "0" ]; then
   ok "opening bean"
   cd "$SCRIPT_DIR"
+  # When run as `curl ... | bash`, stdin is the pipe — exhausted. bean's
+  # setup is conversational, so re-attach the real terminal if one exists.
+  if [ ! -t 0 ] && [ -r /dev/tty ] 2>/dev/null; then
+    exec $PY "$BEAN_FILE" < /dev/tty
+  fi
   exec $PY "$BEAN_FILE"
 fi
