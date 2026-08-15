@@ -54,12 +54,17 @@ def banner():
     console.print()
 
 
-def ask(question: str) -> str:
-    """One clean input prompt — no echo tricks, no escape codes."""
+def ask(question: str) -> str | None:
+    """One clean input prompt — no echo tricks, no escape codes.
+
+    Returns the stripped answer, "" for a blank Enter, or None when input
+    is finished (EOF, Ctrl+D, piped stdin closed). Callers treat None as
+    "exit" and "" as "re-prompt" — the two are different things.
+    """
     try:
         answer = console.input(f"  {question}  ")
     except (EOFError, KeyboardInterrupt):
-        return ""
+        return None
     return answer.strip()
 
 
@@ -470,6 +475,8 @@ def setup_flow() -> dict | None:
     # No cloud (no key, no proxy): one question, matched locally.
     if not using_cloud:
         need = ask("describe your use case")
+        if need is None:
+            return None  # EOF / Ctrl+D
         if not need:
             return None
         console.print()
@@ -485,6 +492,8 @@ def setup_flow() -> dict | None:
         turns = 0
         while turns < MAX_SETUP_TURNS:
             msg = ask("you")
+            if msg is None:
+                return None  # EOF / Ctrl+D — finished with setup
             if not msg:
                 continue  # accidental Enter — just re-prompt
             if msg.lower() in ("exit", "quit", "q"):
@@ -599,6 +608,10 @@ def chat(profile: dict):
 
     while True:
         msg = ask("you")
+        if msg is None:
+            status("bye")
+            console.print()
+            return  # EOF / Ctrl+D
         if not msg:
             continue  # accidental Enter — just re-prompt, don't bail
         if msg.lower() in ("exit", "quit", "q"):
@@ -665,6 +678,10 @@ def workshop(profile: dict):
 
     while True:
         msg = ask("you")
+        if msg is None:
+            status("bye")
+            console.print()
+            return  # EOF / Ctrl+D
         if not msg:
             continue  # accidental Enter — just re-prompt, don't bail
         if msg.lower() in ("exit", "quit", "q"):

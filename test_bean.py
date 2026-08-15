@@ -102,6 +102,25 @@ class SetupLoopTests(unittest.TestCase):
         bean.ask = mock.Mock(side_effect=iter(["exit"]))
         self.assertIsNone(bean.setup_flow())
 
+    def test_eof_returns_none_not_infinite_loop(self):
+        # ask() returns None at EOF (Ctrl+D / closed pipe). The setup loop
+        # must treat that as "finished", never loop forever.
+        bean.ask = mock.Mock(return_value=None)
+        self.assertIsNone(bean.setup_flow())
+
+    def test_blank_enter_reprompts_but_eof_exits_chat(self):
+        # chat(): "" (blank Enter) re-prompts, None (EOF) exits.
+        import io
+        from rich.console import Console as RichConsole
+        real_console = bean.console
+        bean.console = RichConsole(file=io.StringIO(), force_terminal=False)
+        try:
+            with mock.patch.object(bean, "ask",
+                                   side_effect=iter(["", None])):
+                bean.chat({"model": "llama3.2:3b"})  # must return, not hang
+        finally:
+            bean.console = real_console
+
     def test_empty_enter_reprompts_not_exits(self):
         bean.ask = mock.Mock(side_effect=iter(["", "", "a writing buddy", "exit"]))
         profile = bean.setup_flow()
