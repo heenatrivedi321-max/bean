@@ -58,10 +58,10 @@ Rules: never invent a model name. Never exceed the RAM budget. Never claim a
 model does a job its catalog uses/note doesn't support. Never output the
 catalog itself.`;
 
-function json(body, status = 200) {
+function json(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
   });
 }
 
@@ -134,6 +134,19 @@ export default {
     }
 
     // Only the content is returned — never upstream headers or key material.
-    return json({ content: data.choices[0].message.content });
+    // Count every successful pick so bean can report how many people have
+    // used it (x-bean-served). KV is eventually consistent; a rare lost
+    // increment under a burst is fine for a popularity counter.
+    let served = null;
+    try {
+      const n = Number(await env.COUNTER.get("served")) || 0;
+      served = n + 1;
+      await env.COUNTER.put("served", String(served));
+    } catch {
+      // counter is best-effort — never fail a pick because of it
+    }
+    const headers = { "content-type": "application/json" };
+    if (served) headers["x-bean-served"] = String(served);
+    return json({ content: data.choices[0].message.content }, 200, headers);
   },
 };

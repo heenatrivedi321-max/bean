@@ -2,5 +2,10 @@ name = "bean-picker"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
+# Usage counter — how many setups bean has served (x-bean-served header).
+[[kv_namespaces]]
+binding = "COUNTER"
+id = "44e3a701a037473a8505637a1cd1b9ea"
+
 # The Groq key is NOT here. Set it as an encrypted secret:
 #   npx wrangler secret put GROQ_API_KEY

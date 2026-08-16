@@ -47,6 +47,8 @@ GREEN = "green"
 
 # ---------------------------------------------------------------- ui helpers
 
+_served_count = 0
+
 def banner():
     console.print()
     console.print(Text("bean", style=f"bold {ACCENT}"))
@@ -150,6 +152,11 @@ def recommend_via_proxy(conversation: list[dict], budget_gb: float) -> str | Non
                             "budget_gb": budget_gb})
     if r.status_code != 200:
         raise RuntimeError(r.json().get("error", f"proxy {r.status_code}"))
+    global _served_count
+    try:
+        _served_count = int(r.headers.get("x-bean-served", "0"))
+    except ValueError:
+        _served_count = 0
     return r.json()["content"]
 
 
@@ -585,6 +592,8 @@ def setup_flow() -> dict | None:
 
     # Cloud's job is done — everything after this is local only.
     status("cloud model done · from here everything runs on your machine")
+    if _served_count:
+        meta(f"bean cloud", f"setup #{_served_count}", 0)
     console.print()
 
     need = next((m["content"] for m in reversed(conversation)

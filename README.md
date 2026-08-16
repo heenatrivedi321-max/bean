@@ -28,6 +28,8 @@ model that fits (through a tiny proxy that holds the key — no API keys
 required from you), downloads it with a live progress bar, then steps out.
 The Ollama app opens with your model ready to chat.
 
+See [what a real setup looks like](docs/demo.md).
+
 install.sh also puts a `bean` command on your PATH, so next time it's just:
 
 ```bash
