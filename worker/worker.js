@@ -65,8 +65,52 @@ function json(body, status = 200, headers = {}) {
   });
 }
 
+// Errors are the whole reason bean silently broke for months after Groq
+// deprecated the hardcoded model name -- nothing was watching. This gives
+// /health something real to report: every upstream failure gets logged,
+// capped at the most recent 50 so KV storage stays bounded, and a GET
+// /health call anyone (or an uptime monitor) can hit surfaces whether
+// picks are actually succeeding right now, not just whether the worker
+// itself is reachable.
+const MAX_LOGGED_ERRORS = 50;
+
+async function logPickError(env, message) {
+  try {
+    const raw = await env.COUNTER.get("errors");
+    const errors = raw ? JSON.parse(raw) : [];
+    errors.unshift({ message, at: Date.now() / 1000 });
+    await env.COUNTER.put("errors", JSON.stringify(errors.slice(0, MAX_LOGGED_ERRORS)));
+  } catch {
+    // logging is best-effort -- never fail a pick because of it
+  }
+}
+
+async function handleHealth(env) {
+  let errors = [];
+  try {
+    const raw = await env.COUNTER.get("errors");
+    errors = raw ? JSON.parse(raw) : [];
+  } catch {
+    // if we can't even read the error log, report that honestly
+    return json({ ok: false, errors_last_24h: null, last_error: "couldn't read error log" });
+  }
+  const dayAgo = Date.now() / 1000 - 86400;
+  const recent = errors.filter((e) => e.at >= dayAgo);
+  return json({
+    ok: recent.length === 0,
+    errors_last_24h: recent.length,
+    last_error: errors[0] || null,
+  });
+}
+
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/health") {
+      return handleHealth(env);
+    }
+
     if (request.method !== "POST") {
       return json({ error: "POST only" }, 405);
     }
@@ -123,6 +167,7 @@ export default {
         }),
       });
     } catch (e) {
+      await logPickError(env, `upstream unreachable: ${e.message}`);
       return json({ error: "upstream unreachable" }, 502);
     }
 
@@ -130,6 +175,7 @@ export default {
     if (!upstream.ok || !data?.choices?.length) {
       // Pass the real reason through so bean can show it instead of guessing.
       const msg = data?.error?.message || `upstream ${upstream.status}`;
+      await logPickError(env, msg);
       return json({ error: msg }, 502);
     }
 
