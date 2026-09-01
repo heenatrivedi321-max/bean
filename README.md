@@ -26,7 +26,10 @@ curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/bean/main/insta
 That's it. Say hi, chat a bit, then type what you need — bean picks the best
 model that fits (through a tiny proxy that holds the key — no API keys
 required from you), downloads it with a live progress bar, then steps out.
-The Ollama app opens with your model ready to chat.
+The Ollama app opens with your model ready to chat — and right before it
+does, bean times one real generation and tells you how fast that model
+actually runs on your machine, right now. Not a spec-sheet claim, a
+measured one.
 
 See [what a real setup looks like](docs/demo.md).
 
@@ -50,6 +53,10 @@ app, fully local and private.
   setup)
 - `install.sh` — the one-command front door: installs Python deps and
   Ollama if missing, starts it, opens bean
+
+`GET https://bean-picker.bean-picker.workers.dev/health` reports whether
+the model-picker proxy is actually working right now, not just reachable
+— pingable by an uptime monitor.
 
 ## Power-user flags
 
