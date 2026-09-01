@@ -361,6 +361,36 @@ def warm_model(model: str):
         pass  # non-fatal — the model is still in the app's list
 
 
+def benchmark_model(model: str) -> float | None:
+    """Real, measured tokens/sec on THIS machine -- not a spec-sheet claim.
+
+    Ollama's own /api/generate response carries eval_count (tokens actually
+    generated) and eval_duration (nanoseconds Ollama itself spent generating
+    them) when stream=False -- that's the model's real generation speed
+    straight from the source, not our own wall-clock guess padded by
+    network/queueing overhead. One short, fixed prompt so every model gets
+    timed the same way and this stays fast (a couple seconds, not a real
+    benchmark suite)."""
+    try:
+        payload = {
+            "model": model, "stream": False,
+            "prompt": "Write one short sentence about the ocean.",
+            "options": {"num_predict": 40, "num_ctx": 2048},
+        }
+        req = urllib.request.Request(
+            config.OLLAMA_API, data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+        eval_count = data.get("eval_count")
+        eval_ns = data.get("eval_duration")
+        if not eval_count or not eval_ns:
+            return None
+        return eval_count / (eval_ns / 1e9)
+    except Exception:
+        return None  # non-fatal -- setup still succeeds without this number
+
+
 def handoff_to_app(model: str) -> bool:
     """Open the Ollama app with the model ready. True if handed off."""
     if sys.platform == "darwin":
@@ -373,8 +403,12 @@ def handoff_to_app(model: str) -> bool:
         subprocess.run(["open", "-a", "Ollama"], timeout=10)
         with console.status("loading your model…", spinner="dots"):
             warm_model(model)
+        with console.status("timing it on your machine…", spinner="dots"):
+            speed = benchmark_model(model)
         console.print()
         success("your helper is ready — it's in the Ollama app")
+        if speed:
+            status(f"measured {speed:.0f} tokens/sec on this machine, just now")
         console.print()
         return True
     if sys.platform == "win32":
@@ -387,8 +421,12 @@ def handoff_to_app(model: str) -> bool:
             return False
         with console.status("loading your model…", spinner="dots"):
             warm_model(model)
+        with console.status("timing it on your machine…", spinner="dots"):
+            speed = benchmark_model(model)
         console.print()
         success("your helper is ready — it's in the Ollama app")
+        if speed:
+            status(f"measured {speed:.0f} tokens/sec on this machine, just now")
         console.print()
         return True
     # Linux: no desktop app — the terminal workshop takes over.
