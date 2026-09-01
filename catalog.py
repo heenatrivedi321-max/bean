@@ -60,7 +60,13 @@ def candidates_for(use_case: str, budget_gb: float, limit: int = 3,
     """
     matches = [m for m in CATALOG
                if use_case in m["uses"] and m["gb"] <= budget_gb]
-    if not matches:  # nothing fits the use case, fall back to anything that fits
-        matches = [m for m in CATALOG if m["gb"] <= budget_gb]
+    if not matches:
+        # Nothing in the requested category fits -- a general-purpose model
+        # is a far better fallback than an unrelated specialist (a coding
+        # model for a math request, say) just because it happens to be
+        # small. Try general-purpose first, then truly anything that fits.
+        matches = [m for m in CATALOG if "general" in m["uses"] and m["gb"] <= budget_gb]
+        if not matches:
+            matches = [m for m in CATALOG if m["gb"] <= budget_gb]
     matches.sort(key=lambda m: m["gb"] if smallest_first else -m["gb"])
     return matches[:limit]
