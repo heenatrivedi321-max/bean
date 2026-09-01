@@ -530,18 +530,27 @@ def setup_flow() -> dict | None:
                 cloud_source = "bean cloud" if config.PROXY_URL else cloud_label()
                 elapsed = time.time() - t0
                 break
+            # The fallback needs to describe what the user actually asked
+            # for -- not just the single message that happened to fail.
+            # A cloud error on turn 1 ("hey") used to fall back on "hey"
+            # itself, which classify() reads as no signal and defaults to
+            # a general model even when the user's real need is on turn 2.
+            need_so_far = " ".join(
+                m["content"] for m in conversation if m["role"] == "user"
+            )
+
             if cloud_error:
                 status(f"cloud pick unavailable"
                        f"{' (' + cloud_error + ')' if cloud_error else ''}"
                        f" — matching locally instead")
                 console.print()
-                rec = fallback_recommend(msg, budget)
+                rec = fallback_recommend(need_so_far, budget)
                 elapsed = time.time() - t0
                 break
             if not text:
                 error("the cloud picker went quiet — matching locally instead")
                 console.print()
-                rec = fallback_recommend(msg, budget)
+                rec = fallback_recommend(need_so_far, budget)
                 elapsed = time.time() - t0
                 break
 
