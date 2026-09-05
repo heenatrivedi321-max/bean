@@ -71,6 +71,10 @@ python3 bean.py --workshop   # terminal agent: shows its thinking, reads and
                              # edits your files, asks before running commands
 python3 bean.py --chat       # plain terminal chat, no tools
 python3 bean.py --setup      # force re-setup (pick a new model)
+python3 bean.py --switch     # need something different right now? bean
+                             # remembers past picks by use case -- switching
+                             # back to one you've used before is instant,
+                             # no re-setup, no re-download
 ```
 
 ## Requirements
