@@ -8,6 +8,12 @@ app with your model already loaded. Everything runs on your computer.
 ## Try it
 
 ```bash
+npx trybean
+```
+
+That's it -- one short command, same install underneath. If you'd rather see exactly what runs before it touches anything:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/bean/main/install.sh | bash
 ```
 
