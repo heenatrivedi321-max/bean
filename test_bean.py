@@ -80,6 +80,13 @@ class SetupLoopTests(unittest.TestCase):
 
         bean.ask = mock.Mock(side_effect=iter(["hi"] * 20 + ["exit"]))
         bean.recommend_via_proxy = mock.Mock(side_effect=fake_proxy)
+        # proxy_is_healthy makes a real network call in production on
+        # purpose (a fast pre-check against the shared worker's /health) --
+        # these tests use a fake PROXY_URL, so without mocking this it
+        # would try to actually reach it and correctly fail, silently
+        # flipping using_cloud to False and breaking every test in this
+        # class that exercises the cloud chat-loop path.
+        bean.proxy_is_healthy = mock.Mock(return_value=True)
         bean.recommend = mock.Mock(return_value=None)
         bean.fallback_recommend = mock.Mock(return_value={
             "reply": "local", "models": [{"name": "llama3.2:3b", "why": "x"}]})
@@ -101,6 +108,19 @@ class SetupLoopTests(unittest.TestCase):
     def test_exit_returns_none(self):
         bean.ask = mock.Mock(side_effect=iter(["exit"]))
         self.assertIsNone(bean.setup_flow())
+
+    def test_unhealthy_shared_proxy_falls_back_to_local_matching(self):
+        # No personal key, shared proxy unhealthy (e.g. rate-limited under
+        # real load) -- must not attempt the cloud chat loop at all, just
+        # go straight to local matching. This is the exact scale scenario:
+        # hundreds of people shouldn't each individually time out against
+        # a struggling shared worker before falling back.
+        bean.proxy_is_healthy = mock.Mock(return_value=False)
+        bean.ask = mock.Mock(side_effect=iter(["writing help"]))
+        profile = bean.setup_flow()
+        bean.recommend_via_proxy.assert_not_called()
+        bean.fallback_recommend.assert_called_once_with("writing help", 8.0)
+        self.assertIsNotNone(profile)
 
     def test_eof_returns_none_not_infinite_loop(self):
         # ask() returns None at EOF (Ctrl+D / closed pipe). The setup loop

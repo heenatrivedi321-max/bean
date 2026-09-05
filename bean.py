@@ -135,6 +135,25 @@ def _catalog_lines(budget_gb: float) -> list[str]:
         for m in catalog.CATALOG if m["gb"] <= budget_gb]
 
 
+def proxy_is_healthy() -> bool:
+    """Fast, cheap pre-check before committing to the slow conversational
+    cloud path. At real scale, hundreds of people could hit the shared
+    proxy (one Groq key, one Cloudflare Worker) at the same moment -- if
+    Groq rate-limits that key even briefly, every one of them making the
+    full attempt and waiting out a real timeout before falling back is
+    exactly the kind of pileup that made Meanwhile's own KV quota exhaust
+    itself under load earlier. A 3s health check up front means bean finds
+    out fast and skips straight to local matching instead of joining a
+    stampede against a proxy that's already struggling."""
+    if not config.PROXY_URL:
+        return False
+    try:
+        r = requests.get(f"{config.PROXY_URL}/health", timeout=3)
+        return r.status_code == 200 and r.json().get("ok", False)
+    except Exception:
+        return False
+
+
 def recommend_via_proxy(conversation: list[dict], budget_gb: float) -> str | None:
     """Ask our Worker, which holds the key. No key ships with bean.
 
@@ -147,7 +166,12 @@ def recommend_via_proxy(conversation: list[dict], budget_gb: float) -> str | Non
     if not options:
         return None
 
-    r = requests.post(config.PROXY_URL, timeout=60,
+    # 60s used to mean every one of hundreds of concurrent users could sit
+    # through a full minute per failed turn before ever reaching the local
+    # fallback -- fail fast instead. A real LLM reply comes back well under
+    # this even on a loaded proxy; this bounds the worst case, not the
+    # normal case.
+    r = requests.post(config.PROXY_URL, timeout=12,
                       json={"messages": conversation, "catalog": "\n".join(options),
                             "budget_gb": budget_gb})
     if r.status_code != 200:
@@ -510,7 +534,15 @@ def setup_flow() -> dict | None:
         budget = onboard.ram_budget_gb()
     console.print()
 
-    using_cloud = bool(config.cloud_api_key()) or bool(config.PROXY_URL)
+    has_own_key = bool(config.cloud_api_key())
+    # A personal key goes straight to the user's own provider -- only the
+    # shared PROXY_URL (one Groq key serving every bean install with no key
+    # of their own) is at real risk of a scale pileup, so only that path
+    # gets pre-checked.
+    using_cloud = has_own_key or (bool(config.PROXY_URL) and proxy_is_healthy())
+    if not has_own_key and config.PROXY_URL and not using_cloud:
+        status("shared model-picker is busy right now — matching locally instead")
+        console.print()
     conversation: list[dict] = []
     rec = None
     cloud_source = None
