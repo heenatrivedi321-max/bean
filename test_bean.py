@@ -33,6 +33,13 @@ class FakeConsole:
 
             def __exit__(s, *a):
                 return False
+
+            def update(s, *a, **kw):
+                # rich's real Status.update() changes the displayed text --
+                # no-op here, but must exist so code that calls it (like
+                # the hardware-check spinner cycling through messages)
+                # doesn't crash against this fake.
+                pass
         return S()
 
     def out(self, *args, **kwargs):

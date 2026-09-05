@@ -528,9 +528,24 @@ def setup_flow() -> dict | None:
         title="bean", border_style="grey35", expand=False))
     console.print()
 
-    with console.status("checking your hardware…", spinner="dots"):
+    # Real spinner, joke content -- same idea as Claude Code cycling
+    # playful verbs while it thinks, except the actual work underneath
+    # this one is a single free()-memory syscall. The irony is the joke:
+    # dressing up "read a number" as an elaborate procedure, on purpose.
+    HARDWARE_CHECK_BITS = [
+        "consulting the RAM oracle…",
+        "asking your CPU nicely…",
+        "running enterprise-grade hardware diagnostics…",
+        "definitely not just calling free()…",
+        "cross-referencing the silicon…",
+        "very seriously considering your motherboard…",
+    ]
+    with console.status(HARDWARE_CHECK_BITS[0], spinner="dots") as spin:
         setup_wizard.free_stray_ram(quiet=True)
-        time.sleep(1)
+        for bit in HARDWARE_CHECK_BITS[1:]:
+            time.sleep(1 / len(HARDWARE_CHECK_BITS))
+            spin.update(bit)
+        time.sleep(1 / len(HARDWARE_CHECK_BITS))
         budget = onboard.ram_budget_gb()
     console.print()
 
