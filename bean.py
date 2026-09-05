@@ -755,6 +755,76 @@ def switch_flow() -> dict | None:
     return setup_flow()
 
 
+# ---------------------------------------------------------------- doctor
+
+def _ollama_reachable() -> bool:
+    try:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3):
+            return True
+    except Exception:
+        return False
+
+
+def doctor_flow():
+    """A real self-check, not a claim. Same instinct as the rest of tonight:
+    prove it, don't just say it. Reports what's actually true right now --
+    Ollama reachable, your model actually installed, a real live benchmark,
+    and everything bean remembers about you -- so you can tell at a glance
+    whether something's actually wrong or you're just imagining it."""
+    banner()
+    console.print("  [bold]checking your setup for real[/bold]")
+    console.print()
+
+    ok = True
+
+    if _ollama_reachable():
+        success("Ollama is running and reachable")
+    else:
+        error("Ollama isn't reachable at localhost:11434 -- is the app or `ollama serve` running?")
+        ok = False
+
+    profile = onboard.load_profile()
+    if not profile:
+        error("no profile found yet -- run bean without flags first")
+        console.print()
+        return
+    model = profile.get("model", "")
+    if model and setup_wizard.model_present(model):
+        success(f"active model ({model}) is installed")
+    else:
+        error(f"active model ({model or 'none'}) isn't actually installed -- run --setup again")
+        ok = False
+
+    if ok and model:
+        with console.status(f"running a real benchmark on {model}…", spinner="dots"):
+            use_case = onboard.classify_use_case(profile.get("need", ""))
+            result = onboard.benchmark(model, use_case)
+        if result["ok"]:
+            success(f"real measured speed: {result['tps']} tok/s -- usable")
+        else:
+            error(f"benchmark failed: {result['reason']} ({result['tps']} tok/s)")
+            ok = False
+
+    by_need = profile.get("by_need", {})
+    console.print()
+    if by_need:
+        console.print("  [bold]what bean remembers about you[/bold]")
+        for uc, m in by_need.items():
+            present = setup_wizard.model_present(m)
+            mark = f"[{ACCENT}]✓[/{ACCENT}]" if present else "[red]✗[/red]"
+            console.print(f"  {mark} {uc}  [{DIM}]· {m}[/{DIM}]"
+                          f"{'' if present else '  (no longer installed)'}")
+    else:
+        console.print(f"  [{DIM}]no per-need memory yet -- use --switch a couple times[/{DIM}]")
+    console.print()
+
+    if ok:
+        success("everything checks out, for real, right now")
+    else:
+        error("something's actually wrong above -- not a guess, a real finding")
+    console.print()
+
+
 # ---------------------------------------------------------------- chat
 
 def chat(profile: dict):
@@ -875,6 +945,10 @@ def workshop(profile: dict):
 # ---------------------------------------------------------------- main
 
 def main():
+    if "--doctor" in sys.argv:
+        doctor_flow()
+        return
+
     if "--switch" in sys.argv:
         profile = switch_flow()
         if not profile:

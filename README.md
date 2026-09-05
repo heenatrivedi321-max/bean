@@ -75,6 +75,10 @@ python3 bean.py --switch     # need something different right now? bean
                              # remembers past picks by use case -- switching
                              # back to one you've used before is instant,
                              # no re-setup, no re-download
+python3 bean.py --doctor     # a real self-check: is Ollama running, is
+                             # your model actually installed, a live
+                             # benchmark, and everything bean remembers
+                             # about you -- proof, not a claim
 ```
 
 ## Requirements
