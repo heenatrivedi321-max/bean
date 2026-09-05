@@ -655,19 +655,49 @@ def setup_flow() -> dict | None:
 
 
 def switch_flow() -> dict | None:
-    """Not first-time setup -- a genuine need change mid-use. If bean has
-    already picked a model for this exact use case before, switch to it
-    instantly: no chat, no network call, no re-benchmarking. Otherwise it's
-    a real new need, so fall through to the normal setup flow, which will
-    remember this one too."""
+    """Not first-time setup -- a genuine need change mid-use. If you've
+    already told bean about a use case before, switching back shouldn't
+    require typing a full sentence again -- a number is enough. Only a
+    genuinely new need falls through to describing it and, eventually, the
+    normal setup flow."""
     banner()
-    need = ask("what do you need right now?")
+    profile = onboard.load_profile() or {}
+    by_need = profile.get("by_need", {})
+    # Only offer use cases whose model is still actually installed --
+    # offering a quick-pick that silently re-triggers a full download
+    # would be a worse surprise than not offering it at all.
+    available = {uc: m for uc, m in by_need.items() if setup_wizard.model_present(m)}
+
+    use_case = None
+    if available:
+        console.print("  [bold]What do you need right now?[/bold]")
+        items = list(available.items())
+        for i, (uc, model) in enumerate(items, 1):
+            console.print(f"  [{ACCENT}]{i}[/{ACCENT}] {uc}  [{DIM}]· {model}[/{DIM}]")
+        console.print(f"  [{ACCENT}]{len(items) + 1}[/{ACCENT}] something else")
+        console.print()
+        choice = ask("pick a number, or just describe it")
+        if not choice:
+            return None
+        if choice.isdigit() and 1 <= int(choice) <= len(items):
+            use_case, model = items[int(choice) - 1]
+            profile["model"] = model
+            onboard.save_profile(profile)
+            success(f"switched to {model} — already picked and installed for {use_case}, no re-setup needed")
+            console.print()
+            return profile
+        if choice.isdigit() and int(choice) == len(items) + 1:
+            need = ask("what do you need, then?")
+        else:
+            need = choice  # typed a description straight past the menu
+    else:
+        need = ask("what do you need right now?")
+
     if not need:
         return None
     use_case = onboard.classify_use_case(need)
     remembered = onboard.recall_model_for_need(use_case)
     if remembered and setup_wizard.model_present(remembered):
-        profile = onboard.load_profile() or {}
         profile["model"] = remembered
         onboard.save_profile(profile)
         success(f"switched to {remembered} — already picked and installed for {use_case}, no re-setup needed")
