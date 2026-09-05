@@ -647,7 +647,35 @@ def setup_flow() -> dict | None:
              if m["role"] == "user"), "")
     profile = {"need": need, "models": installed, "model": installed[0]}
     onboard.save_profile(profile)
+    # Remember this pick against the use case it was actually for, so
+    # switching back to "coding" (or whatever) later is instant instead of
+    # re-running the whole chat-and-benchmark flow from scratch.
+    onboard.remember_model_for_need(onboard.classify_use_case(need), installed[0])
     return profile
+
+
+def switch_flow() -> dict | None:
+    """Not first-time setup -- a genuine need change mid-use. If bean has
+    already picked a model for this exact use case before, switch to it
+    instantly: no chat, no network call, no re-benchmarking. Otherwise it's
+    a real new need, so fall through to the normal setup flow, which will
+    remember this one too."""
+    banner()
+    need = ask("what do you need right now?")
+    if not need:
+        return None
+    use_case = onboard.classify_use_case(need)
+    remembered = onboard.recall_model_for_need(use_case)
+    if remembered and setup_wizard.model_present(remembered):
+        profile = onboard.load_profile() or {}
+        profile["model"] = remembered
+        onboard.save_profile(profile)
+        success(f"switched to {remembered} — already picked and installed for {use_case}, no re-setup needed")
+        console.print()
+        return profile
+    status(f"no model remembered for '{use_case}' yet — picking one now")
+    console.print()
+    return setup_flow()
 
 
 # ---------------------------------------------------------------- chat
@@ -770,6 +798,16 @@ def workshop(profile: dict):
 # ---------------------------------------------------------------- main
 
 def main():
+    if "--switch" in sys.argv:
+        profile = switch_flow()
+        if not profile:
+            return
+        if handoff_to_app(profile["model"]):
+            return
+        console.print()
+        workshop(profile)
+        return
+
     profile = onboard.load_profile()
     if (profile is None or "--setup" in sys.argv
             or "models" not in (profile or {})

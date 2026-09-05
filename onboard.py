@@ -48,6 +48,28 @@ def save_profile(profile: dict):
     PROFILE_PATH.write_text(json.dumps(profile, indent=2))
 
 
+# ------------------------------------------------------- per-need memory
+#
+# The "ongoing relationship" idea: bean shouldn't just pick a model once at
+# setup and stop there. If you needed a coding model this morning and a
+# writing model this afternoon, switching back to coding tonight shouldn't
+# mean re-running the whole chat-and-benchmark flow again -- bean already
+# knows what worked. Stored inside profile.json under "by_need" so it
+# travels with the same file, not a second source of truth.
+
+def remember_model_for_need(use_case: str, model: str):
+    profile = load_profile() or {}
+    by_need = profile.get("by_need", {})
+    by_need[use_case] = model
+    profile["by_need"] = by_need
+    save_profile(profile)
+
+
+def recall_model_for_need(use_case: str) -> str | None:
+    profile = load_profile() or {}
+    return profile.get("by_need", {}).get(use_case)
+
+
 def classify_use_case(description: str) -> str:
     """Use the cloud model if a key exists, else keyword matching."""
     key_info = config.cloud_api_key()
